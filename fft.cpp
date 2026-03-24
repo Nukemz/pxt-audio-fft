@@ -151,9 +151,9 @@ static bool isHarmonic(float f1, float f2) {
 static void findPeaks(int peakToPeak) {
     float freqRes = (float)SAMPLE_RATE / (float)FFT_SIZE;  // ~5.38 Hz
 
-    // Frequency range: just below C3 (130.81) to just above B5 (987.77)
-    int minBin = (int)(120.0f / freqRes);   // ~22
-    int maxBin = (int)(1050.0f / freqRes);  // ~195
+    // Frequency range: margin below C4 (261.63) to just above B6 (1975.53)
+    int minBin = (int)(200.0f / freqRes);   // ~37, margin below C4
+    int maxBin = (int)(2050.0f / freqRes);  // ~381
     if (maxBin > HALF_FFT) maxBin = HALF_FFT;
 
     // Primary peak

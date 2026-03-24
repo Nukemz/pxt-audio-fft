@@ -1,33 +1,39 @@
-// ─── Note Frequency Table: C3 through B5, natural notes ──────────
-// Rounded to nearest integer Hz (matches Python version's tuning)
+// ─── Note Frequency Table: C4 through B6, natural notes ──────────
+// Rounded to nearest integer Hz
 const NOTE_LETTERS = [
-    "C", "D", "E", "F", "G", "A", "B",   // octave 3
     "C", "D", "E", "F", "G", "A", "B",   // octave 4
-    "C", "D", "E", "F", "G", "A", "B"    // octave 5
+    "C", "D", "E", "F", "G", "A", "B",   // octave 5
+    "C", "D", "E", "F", "G", "A", "B"    // octave 6
 ]
 const NOTE_FREQS = [
-    131, 147, 165, 175, 196, 220, 247,    // octave 3
     262, 294, 330, 349, 392, 440, 494,    // octave 4
-    523, 587, 659, 698, 784, 880, 988     // octave 5
+    523, 587, 659, 698, 784, 880, 988,    // octave 5
+    1047, 1175, 1319, 1397, 1568, 1760, 1976 // octave 6
 ]
 
 // ─── Tuneable Constants ──────────────────────────────────────────
 const TRIGGER_PEAK = 15    // ADC peak-to-peak threshold to trigger detection
-const BAR_SCALE = 6        // peak-to-peak units per VU bar segment
 const SUSTAIN_COUNT = 3    // consecutive loud frames before running FFT
 const QUIET_RESET = 2      // consecutive quiet frames to reset counter
 const FREQ_TOLERANCE = 20  // max Hz distance from a note to count as a match
+const TONE_DURATION = 500  // ms to play the detected note on the speaker
 
 // ─── State ───────────────────────────────────────────────────────
 let loudCount = 0
 let quietCount = 0
 
+// Result of note lookup
+let matchedNote = ""
+let matchedFreq = 0
+
 /**
  * Map a detected frequency to the nearest note letter.
- * Returns "" if the frequency is out of range or too far from any note.
+ * Sets matchedNote and matchedFreq. matchedNote is "" if no match.
  */
-function freqToNote(freq: number): string {
-    if (freq < 120 || freq > 1050) return ""
+function freqToNote(freq: number): void {
+    matchedNote = ""
+    matchedFreq = 0
+    if (freq < 200 || freq > 2000) return
     let bestIdx = 0
     let bestDist = 99999
     for (let i = 0; i < NOTE_FREQS.length; i++) {
@@ -37,8 +43,9 @@ function freqToNote(freq: number): string {
             bestIdx = i
         }
     }
-    if (bestDist > FREQ_TOLERANCE) return ""
-    return NOTE_LETTERS[bestIdx]
+    if (bestDist > FREQ_TOLERANCE) return
+    matchedNote = NOTE_LETTERS[bestIdx]
+    matchedFreq = NOTE_FREQS[bestIdx]
 }
 
 // ─── Main Loop ───────────────────────────────────────────────────
@@ -52,12 +59,6 @@ basic.forever(function () {
         if (v > hi) hi = v
     }
     let peakToPeak = hi - lo
-
-    // VU meter on bottom row of LED matrix
-    let bars = Math.min(5, Math.idiv(peakToPeak, BAR_SCALE))
-    for (let x = 0; x < 5; x++) {
-        led.plotBrightness(x, 4, x < bars ? 255 : 0)
-    }
 
     // Hysteresis trigger
     if (peakToPeak > TRIGGER_PEAK) {
@@ -78,24 +79,11 @@ basic.forever(function () {
         audioFFT.runAnalysis()
 
         let pFreq = audioFFT.primaryFrequency()
-        let sFreq = audioFFT.secondaryFrequency()
-        let pNote = freqToNote(pFreq)
-        let sNote = freqToNote(sFreq)
+        freqToNote(pFreq)
 
-        if (pNote.length > 0) {
-            if (sNote.length > 0 && sNote !== pNote) {
-                basic.showString(pNote + "+" + sNote, 80)
-            } else {
-                basic.showString(pNote)
-            }
-            pins.digitalWritePin(DigitalPin.P0, 1)
-            basic.pause(3000)
-            pins.digitalWritePin(DigitalPin.P0, 0)
-            basic.showString(" ")
-        } else {
-            basic.showString("-")
-            basic.pause(500)
-            basic.showString(" ")
+        if (matchedNote.length > 0) {
+            basic.showString(matchedNote)
+            music.playTone(matchedFreq, TONE_DURATION)
         }
     }
 
