@@ -1,30 +1,41 @@
-// ─── Note Frequency Table: C4 through B6, natural notes ──────────
-// Rounded to nearest integer Hz
+// ─── Note Frequency Table: C4 through B6, full chromatic scale ─────
+// All 12 semitones per octave for accurate matching with sharps/flats
 const NOTE_LETTERS = [
-    "C", "D", "E", "F", "G", "A", "B",   // octave 4
-    "C", "D", "E", "F", "G", "A", "B",   // octave 5
-    "C", "D", "E", "F", "G", "A", "B"    // octave 6
+    "C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B",  // octave 4
+    "C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B",  // octave 5
+    "C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"   // octave 6
 ]
 const NOTE_FREQS = [
-    262, 294, 330, 349, 392, 440, 494,    // octave 4
-    523, 587, 659, 698, 784, 880, 988,    // octave 5
-    1047, 1175, 1319, 1397, 1568, 1760, 1976 // octave 6
+    262, 277, 294, 311, 330, 349, 370, 392, 415, 440, 466, 494,         // octave 4
+    523, 554, 587, 622, 659, 698, 740, 784, 831, 880, 932, 988,         // octave 5
+    1047, 1109, 1175, 1245, 1319, 1397, 1480, 1568, 1661, 1760, 1865, 1976 // octave 6
 ]
 
 // ─── Tuneable Constants ──────────────────────────────────────────
-const TRIGGER_PEAK = 15    // ADC peak-to-peak threshold to trigger detection
+const TRIGGER_LEVEL = 30   // sound level threshold (0-255 from built-in mic)
 const SUSTAIN_COUNT = 3    // consecutive loud frames before running FFT
 const QUIET_RESET = 2      // consecutive quiet frames to reset counter
-const FREQ_TOLERANCE = 20  // max Hz distance from a note to count as a match
-const TONE_DURATION = 500  // ms to play the detected note on the speaker
+const FREQ_TOLERANCE = 15  // max Hz distance from a note to count as a match
+const QUIET_CLEAR_MS = 1500 // ms of silence before clearing the display
 
 // ─── State ───────────────────────────────────────────────────────
 let loudCount = 0
 let quietCount = 0
+let lastNoteTime = 0
 
 // Result of note lookup
 let matchedNote = ""
 let matchedFreq = 0
+
+// Current display state
+let displayedNote = ""
+let displayedFreq = 0
+let secondaryNote = ""
+let secondaryFreqHz = 0
+let showSecondary = false
+
+// ─── Startup: let ADC/mic settle before listening ────────────────
+basic.pause(1000)
 
 /**
  * Map a detected frequency to the nearest note letter.
@@ -33,7 +44,7 @@ let matchedFreq = 0
 function freqToNote(freq: number): void {
     matchedNote = ""
     matchedFreq = 0
-    if (freq < 200 || freq > 2000) return
+    if (freq < 200 || freq > 2050) return
     let bestIdx = 0
     let bestDist = 99999
     for (let i = 0; i < NOTE_FREQS.length; i++) {
@@ -48,20 +59,68 @@ function freqToNote(freq: number): void {
     matchedFreq = NOTE_FREQS[bestIdx]
 }
 
+/**
+ * Show a note letter on the LED matrix (rows 0-3).
+ * Row 4 is reserved for the VU meter.
+ */
+function showNote(note: string): void {
+    // Clear rows 0-3 only (preserve VU meter on row 4)
+    for (let y = 0; y < 4; y++) {
+        for (let x = 0; x < 5; x++) {
+            led.unplot(x, y)
+        }
+    }
+    if (note.length === 0) return
+    // Show just the letter (first character) large on the display
+    let letter = note.charAt(0)
+    basic.showString(letter)
+    // If sharp, light the top-right corner as an indicator
+    if (note.length > 1) {
+        led.plot(4, 0)
+    }
+}
+
+// ─── Button handlers: toggle primary/secondary display ──────────
+input.onButtonPressed(Button.A, function () {
+    showSecondary = false
+    if (displayedNote.length > 0) {
+        showNote(displayedNote)
+    }
+})
+
+input.onButtonPressed(Button.B, function () {
+    showSecondary = true
+    if (secondaryNote.length > 0) {
+        showNote(secondaryNote)
+    }
+})
+
+// Show info on A+B: scroll the detected frequency in Hz
+input.onButtonPressed(Button.AB, function () {
+    let freq = showSecondary ? secondaryFreqHz : displayedFreq
+    if (freq > 0) {
+        basic.showNumber(freq)
+        // Re-show the current note after scrolling
+        let note = showSecondary ? secondaryNote : displayedNote
+        if (note.length > 0) {
+            showNote(note)
+        }
+    }
+})
+
 // ─── Main Loop ───────────────────────────────────────────────────
 basic.forever(function () {
-    // Quick 50-sample peak-to-peak check on pin1
-    let lo = 1023
-    let hi = 0
-    for (let i = 0; i < 50; i++) {
-        let v = pins.analogReadPin(AnalogPin.P1)
-        if (v < lo) lo = v
-        if (v > hi) hi = v
+    // Quick sound level check using built-in microphone (0-255)
+    let level = input.soundLevel()
+
+    // VU meter on bottom row — shows mic activity (scale 0-255 into 5 bars)
+    let bars = Math.min(5, Math.idiv(level, 50))
+    for (let x = 0; x < 5; x++) {
+        led.plotBrightness(x, 4, x < bars ? 255 : 0)
     }
-    let peakToPeak = hi - lo
 
     // Hysteresis trigger
-    if (peakToPeak > TRIGGER_PEAK) {
+    if (level > TRIGGER_LEVEL) {
         loudCount += 1
         quietCount = 0
     } else {
@@ -78,12 +137,46 @@ basic.forever(function () {
 
         audioFFT.runAnalysis()
 
+        // Primary note
         let pFreq = audioFFT.primaryFrequency()
         freqToNote(pFreq)
 
         if (matchedNote.length > 0) {
-            basic.showString(matchedNote)
-            music.playTone(matchedFreq, TONE_DURATION)
+            displayedNote = matchedNote
+            displayedFreq = pFreq
+            lastNoteTime = input.runningTime()
+
+            // Secondary note
+            let sFreq = audioFFT.secondaryFrequency()
+            if (sFreq > 0) {
+                freqToNote(sFreq)
+                secondaryNote = matchedNote
+                secondaryFreqHz = sFreq
+            } else {
+                secondaryNote = ""
+                secondaryFreqHz = 0
+            }
+
+            // Display whichever note the user has selected
+            if (showSecondary && secondaryNote.length > 0) {
+                showNote(secondaryNote)
+            } else {
+                showNote(displayedNote)
+            }
+        }
+    }
+
+    // Clear display after sustained silence
+    if (displayedNote.length > 0 && input.runningTime() - lastNoteTime > QUIET_CLEAR_MS) {
+        displayedNote = ""
+        displayedFreq = 0
+        secondaryNote = ""
+        secondaryFreqHz = 0
+        // Clear rows 0-3 (preserve VU meter)
+        for (let y = 0; y < 4; y++) {
+            for (let x2 = 0; x2 < 5; x2++) {
+                led.unplot(x2, y)
+            }
         }
     }
 

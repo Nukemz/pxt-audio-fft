@@ -88,15 +88,25 @@ static void fftCompute(float* buf, int n) {
     }
 }
 
-// ─── ADC Sampling — 2048 samples from pin1 at ~11,025 Hz ─────────
+// ─── Microphone Initialisation ───────────────────────────────────
+static bool mic_initialized = false;
+static void initMic() {
+    if (mic_initialized) return;
+    uBit.io.runmic.setDigitalValue(1);
+    uBit.io.runmic.setHighDrive(true);
+    mic_initialized = true;
+}
+
+// ─── ADC Sampling — 2048 samples from built-in mic at ~11,025 Hz ─
 static int sampleADC() {
+    initMic();
     int lo = 1023, hi = 0;
     long total = 0;
 
     for (int i = 0; i < FFT_SIZE; i++) {
         uint64_t t0 = system_timer_current_time_us();
 
-        int val = uBit.io.P1.getAnalogValue();
+        int val = uBit.io.microphone.getAnalogValue();
         if (val < lo) lo = val;
         if (val > hi) hi = val;
         total += val;
