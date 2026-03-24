@@ -59,6 +59,20 @@ function freqToNote(freq: number): void {
     matchedFreq = NOTE_FREQS[bestIdx]
 }
 
+// ─── 5x4 font for note letters (rows 0-3, row 4 reserved for VU) ─
+// Each entry is a 4-element array of 5-bit row bitmasks (MSB = col 0)
+function notePattern(letter: string): number[] {
+    //                         row0   row1   row2   row3
+    if (letter === "A") return [0b01110, 0b10001, 0b11111, 0b10001]
+    if (letter === "B") return [0b11110, 0b10011, 0b11110, 0b11111]
+    if (letter === "C") return [0b01111, 0b10000, 0b10000, 0b01111]
+    if (letter === "D") return [0b11110, 0b10001, 0b10001, 0b11110]
+    if (letter === "E") return [0b11111, 0b11100, 0b11000, 0b11111]
+    if (letter === "F") return [0b11111, 0b11100, 0b10000, 0b10000]
+    if (letter === "G") return [0b01111, 0b10000, 0b10011, 0b01111]
+    return                     [0b00000, 0b00000, 0b00000, 0b00000]
+}
+
 /**
  * Show a note letter on the LED matrix (rows 0-3).
  * Row 4 is reserved for the VU meter.
@@ -71,9 +85,15 @@ function showNote(note: string): void {
         }
     }
     if (note.length === 0) return
-    // Show just the letter (first character) large on the display
     let letter = note.charAt(0)
-    basic.showString(letter)
+    let rows = notePattern(letter)
+    for (let y = 0; y < 4; y++) {
+        for (let x = 0; x < 5; x++) {
+            if (rows[y] & (1 << (4 - x))) {
+                led.plot(x, y)
+            }
+        }
+    }
     // If sharp, light the top-right corner as an indicator
     if (note.length > 1) {
         led.plot(4, 0)

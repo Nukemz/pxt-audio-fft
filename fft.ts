@@ -1,12 +1,12 @@
 /**
  * Audio FFT frequency analysis for micro:bit V2.
- * Wraps a native C++ 2048-point radix-2 FFT that samples from pin1.
+ * Wraps a native C++ 2048-point radix-2 FFT that samples from the built-in microphone.
  */
 //% color=#0078D7 icon="\uf130" weight=90
 namespace audioFFT {
 
     /**
-     * Sample 2048 points from pin1 at 11,025 Hz, apply a Hanning window,
+     * Sample 2048 points from the built-in microphone at 11,025 Hz, apply a Hanning window,
      * run a 2048-point FFT, and detect the two strongest frequency peaks.
      * Blocks for approximately 190 ms.
      */
