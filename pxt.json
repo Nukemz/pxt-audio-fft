@@ -4,8 +4,7 @@
     "description": "Audio frequency recognition via 2048-point FFT for micro:bit V2",
     "license": "MIT",
     "dependencies": {
-        "core": "*",
-        "microbit": "*"
+        "core": "*"
     },
     "files": [
         "fft.ts",
