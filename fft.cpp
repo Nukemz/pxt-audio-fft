@@ -8,7 +8,7 @@ namespace audioFFT {
 #define FFT_SIZE        2048
 #define HALF_FFT        1024
 #define SAMPLE_RATE     11025
-#define SAMPLE_PERIOD_US 90   // 1000000 / 11025 ≈ 90 µs
+#define SAMPLE_PERIOD_US 90ULL   // 1000000 / 11025 ≈ 90 µs
 
 #define PI_F 3.14159265358979f
 
@@ -187,7 +187,7 @@ static void findPeaks(int peakToPeak) {
     int secondBinIdx = 0;
 
     for (int i = minBin; i <= maxBin; i++) {
-        if (abs(i - maxBinIdx) <= 3) continue;  // skip near primary
+        if (i >= maxBinIdx - 3 && i <= maxBinIdx + 3) continue;  // skip near primary
         if (magnitudes[i] > secondMax && magnitudes[i] >= threshold) {
             float freq = (float)i * freqRes;
             if (!isHarmonic(primaryFreq, freq)) {
