@@ -95,7 +95,7 @@ static int sampleADC() {
     long total = 0;
 
     for (int i = 0; i < FFT_SIZE; i++) {
-        uint32_t t0 = system_timer_current_time_us();
+        uint64_t t0 = system_timer_current_time_us();
 
         int val = pin->getAnalogValue();
         if (val < lo) lo = val;
