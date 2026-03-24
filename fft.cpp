@@ -90,14 +90,13 @@ static void fftCompute(float* buf, int n) {
 
 // ─── ADC Sampling — 2048 samples from pin1 at ~11,025 Hz ─────────
 static int sampleADC() {
-    auto pin = LOOKUP_PIN(P1);
     int lo = 1023, hi = 0;
     long total = 0;
 
     for (int i = 0; i < FFT_SIZE; i++) {
         uint64_t t0 = system_timer_current_time_us();
 
-        int val = pin->getAnalogValue();
+        int val = uBit.io.P1.getAnalogValue();
         if (val < lo) lo = val;
         if (val > hi) hi = val;
         total += val;
