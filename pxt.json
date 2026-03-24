@@ -1,0 +1,24 @@
+{
+    "name": "audio-fft",
+    "version": "1.0.0",
+    "description": "Audio frequency recognition via 2048-point FFT for micro:bit V2",
+    "license": "MIT",
+    "dependencies": {
+        "core": "*",
+        "microbit": "*"
+    },
+    "files": [
+        "fft.ts",
+        "fft.cpp"
+    ],
+    "testFiles": [
+        "test.ts"
+    ],
+    "supportedTargets": [
+        "microbit"
+    ],
+    "disablesVariants": [
+        "mbdal"
+    ],
+    "preferredEditor": "tsprj"
+}
