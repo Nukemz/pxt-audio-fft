@@ -1,14 +1,14 @@
 /**
  * Audio FFT frequency analysis for micro:bit V2.
- * Wraps a native C++ 2048-point radix-2 FFT that samples from the built-in microphone.
+ * Wraps a native C++ 512-point radix-2 FFT that samples from the built-in microphone.
  */
 //% color=#0078D7 icon="\uf130" weight=90
 namespace audioFFT {
 
     /**
-     * Sample 1024 points from the built-in microphone at 11,025 Hz, apply a Hanning window,
-     * run a 1024-point FFT, and detect the two strongest frequency peaks.
-     * Blocks for approximately 100 ms.
+     * Sample 512 points from the built-in microphone at 8,000 Hz, apply a Hanning window,
+     * run a 512-point FFT, and detect the strongest frequency peak.
+     * Blocks for approximately 70 ms.
      */
     //% block="run audio analysis"
     //% shim=audioFFT::runAnalysis
@@ -24,16 +24,6 @@ namespace audioFFT {
     //% shim=audioFFT::primaryFrequency
     export function primaryFrequency(): number {
         return 440
-    }
-
-    /**
-     * Get the secondary detected frequency in Hz (0 if none).
-     * Call runAnalysis() first.
-     */
-    //% block="secondary frequency (Hz)"
-    //% shim=audioFFT::secondaryFrequency
-    export function secondaryFrequency(): number {
-        return 0
     }
 
     /**

@@ -21,7 +21,6 @@ static float hanning_win[FFT_SIZE];       // 2 KB precomputed Hanning window
 
 // ─── Cached Results ───────────────────────────────────────────────
 static int result_primary_freq = 0;
-static int result_secondary_freq = 0;
 static int result_signal_level = 0;
 static bool tables_initialized = false;
 
@@ -149,17 +148,6 @@ static void computeMagnitudes() {
     }
 }
 
-// ─── Harmonic Suppression ─────────────────────────────────────────
-static bool isHarmonic(float f1, float f2) {
-    if (f1 < 1.0f) return true;
-    float ratio = f2 / f1;
-    const float harmonics[] = {0.5f, 1.0f, 2.0f, 3.0f, 0.333f};
-    for (int i = 0; i < 5; i++) {
-        if (fabsf(ratio - harmonics[i]) < 0.08f) return true;
-    }
-    return false;
-}
-
 // ─── Peak Detection ───────────────────────────────────────────────
 static void findPeaks(int peakToPeak) {
     float freqRes = (float)SAMPLE_RATE / (float)FFT_SIZE;  // ~15.6 Hz
@@ -193,40 +181,6 @@ static void findPeaks(int peakToPeak) {
     float primaryFreq = refinedBin * freqRes;
     result_primary_freq = (int)(primaryFreq + 0.5f);
 
-    // Secondary peak — non-harmonic, >= 30% of primary amplitude
-    // (magnitudes are squared, so 0.3^2 = 0.09 threshold)
-    float threshold = maxMag * 0.09f;
-    float secondMax = 0;
-    int secondBinIdx = 0;
-
-    for (int i = minBin; i <= maxBin; i++) {
-        if (i >= maxBinIdx - 3 && i <= maxBinIdx + 3) continue;  // skip near primary
-        if (magnitudes[i] > secondMax && magnitudes[i] >= threshold) {
-            float freq = (float)i * freqRes;
-            if (!isHarmonic(primaryFreq, freq)) {
-                secondMax = magnitudes[i];
-                secondBinIdx = i;
-            }
-        }
-    }
-
-    if (secondBinIdx > 0) {
-        // Parabolic interpolation on secondary peak
-        float refinedSecond = (float)secondBinIdx;
-        if (secondBinIdx > minBin && secondBinIdx < maxBin) {
-            float a = magnitudes[secondBinIdx - 1];
-            float b = magnitudes[secondBinIdx];
-            float g = magnitudes[secondBinIdx + 1];
-            float d = a - 2.0f * b + g;
-            if (fabsf(d) > 0.0001f) {
-                refinedSecond += 0.5f * (a - g) / d;
-            }
-        }
-        result_secondary_freq = (int)(refinedSecond * freqRes + 0.5f);
-    } else {
-        result_secondary_freq = 0;
-    }
-
     // Signal level: 0–100 scale
     result_signal_level = (peakToPeak * 100) / 1023;
     if (result_signal_level > 100) result_signal_level = 100;
@@ -242,7 +196,6 @@ void runAnalysis() {
     memset(fft_buf, 0, sizeof(fft_buf));
     memset(magnitudes, 0, sizeof(magnitudes));
     result_primary_freq = 0;
-    result_secondary_freq = 0;
 
     int pp = sampleADC();
     fiber_sleep(0);              // yield to CODAL scheduler
@@ -251,16 +204,12 @@ void runAnalysis() {
     fiber_sleep(0);              // yield to CODAL scheduler
     computeMagnitudes();
     findPeaks(pp);
+    fiber_sleep(0);              // yield before returning to TS
 }
 
 //%
 int primaryFrequency() {
     return result_primary_freq;
-}
-
-//%
-int secondaryFrequency() {
-    return result_secondary_freq;
 }
 
 //%
