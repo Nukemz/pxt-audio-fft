@@ -6,6 +6,17 @@
 namespace audioFFT {
 
     /**
+     * Quick 16-sample sound level check (~2 ms).
+     * Returns peak-to-peak ADC value (0–1023). Uses the same
+     * direct ADC path as the FFT sampler — no CODAL audio pipeline.
+     */
+    //% block="quick sound level"
+    //% shim=audioFFT::quickLevel
+    export function quickLevel(): number {
+        return 0
+    }
+
+    /**
      * Sample 512 points from the built-in microphone at 8,000 Hz, apply a Hanning window,
      * run a 512-point FFT, and detect the strongest frequency peak.
      * Blocks for approximately 70 ms.

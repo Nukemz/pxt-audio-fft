@@ -31,7 +31,7 @@ const FONT = [
 ]
 
 // ─── Tuneable Constants ──────────────────────────────────────────
-const TRIGGER_LEVEL = 30
+const TRIGGER_LEVEL = 50   // peak-to-peak ADC threshold (0-1023 from quickLevel)
 const SUSTAIN_COUNT = 3
 const QUIET_RESET = 2
 const FREQ_TOLERANCE_PCT = 10
@@ -101,7 +101,8 @@ input.onButtonPressed(Button.AB, function () {
 
 // ─── Main Loop ───────────────────────────────────────────────────
 basic.forever(function () {
-    let level = input.soundLevel()
+    // Quick sound level check — uses same ADC path as FFT (no CODAL audio contention)
+    let level = audioFFT.quickLevel()
 
     if (level > TRIGGER_LEVEL) {
         loudCount += 1

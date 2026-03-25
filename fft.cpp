@@ -189,6 +189,21 @@ static void findPeaks(int peakToPeak) {
 // ─── PXT Shim Functions (exposed to TypeScript) ───────────────────
 
 //%
+int quickLevel() {
+    initMic();
+    int lo = 1023, hi = 0;
+    for (int i = 0; i < 16; i++) {
+        uint64_t t0 = system_timer_current_time_us();
+        int val = uBit.io.microphone.getAnalogValue();
+        if (val < lo) lo = val;
+        if (val > hi) hi = val;
+        while ((system_timer_current_time_us() - t0) < SAMPLE_PERIOD_US)
+            /* spin */;
+    }
+    return hi - lo;  // peak-to-peak, 0–1023
+}
+
+//%
 void runAnalysis() {
     initTwiddles();
 
