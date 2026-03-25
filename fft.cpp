@@ -237,6 +237,13 @@ static void findPeaks(int peakToPeak) {
 //%
 void runAnalysis() {
     initTwiddles();
+
+    // Zero working buffers to prevent stale data accumulation
+    memset(fft_buf, 0, sizeof(fft_buf));
+    memset(magnitudes, 0, sizeof(magnitudes));
+    result_primary_freq = 0;
+    result_secondary_freq = 0;
+
     int pp = sampleADC();
     fiber_sleep(0);              // yield to CODAL scheduler
     applyHanningWindow();
