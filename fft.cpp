@@ -5,18 +5,19 @@ using namespace pxt;
 namespace audioFFT {
 
 // ─── Constants ─────────────────────────────────────────────────────
-#define FFT_SIZE        1024
-#define HALF_FFT        512
-#define SAMPLE_RATE     11025
-#define SAMPLE_PERIOD_US 90ULL   // 1000000 / 11025 ≈ 90 µs
+#define FFT_SIZE        512
+#define HALF_FFT        256
+#define SAMPLE_RATE     8000
+#define SAMPLE_PERIOD_US 125ULL   // 1000000 / 8000 = 125 µs
 
 #define PI_F 3.14159265358979f
 
 // ─── Static Buffers (stack is only 2048 bytes — everything here) ──
-static float fft_buf[FFT_SIZE * 2];       // 16 KB interleaved [re,im,re,im,...]
-static float magnitudes[HALF_FFT + 1];    // ~4 KB magnitude spectrum
-static float twiddle_re[HALF_FFT];        // 4 KB cos twiddle factors
-static float twiddle_im[HALF_FFT];        // 4 KB sin twiddle factors
+static float fft_buf[FFT_SIZE * 2];       // 8 KB interleaved [re,im,re,im,...]
+static float magnitudes[HALF_FFT + 1];    // ~1 KB magnitude-squared spectrum
+static float twiddle_re[HALF_FFT];        // 1 KB cos twiddle factors
+static float twiddle_im[HALF_FFT];        // 1 KB sin twiddle factors
+static float hanning_win[FFT_SIZE];       // 2 KB precomputed Hanning window
 
 // ─── Cached Results ───────────────────────────────────────────────
 static int result_primary_freq = 0;
@@ -24,13 +25,17 @@ static int result_secondary_freq = 0;
 static int result_signal_level = 0;
 static bool tables_initialized = false;
 
-// ─── Twiddle Factor Initialisation (called once) ──────────────────
+// ─── Twiddle Factor + Hanning Window Initialisation (called once) ──
 static void initTwiddles() {
     if (tables_initialized) return;
     for (int i = 0; i < HALF_FFT; i++) {
         float angle = -2.0f * PI_F * (float)i / (float)FFT_SIZE;
         twiddle_re[i] = cosf(angle);
         twiddle_im[i] = sinf(angle);
+    }
+    float factor = 2.0f * PI_F / (float)(FFT_SIZE - 1);
+    for (int i = 0; i < FFT_SIZE; i++) {
+        hanning_win[i] = 0.5f * (1.0f - cosf(factor * (float)i));
     }
     tables_initialized = true;
 }
@@ -97,7 +102,7 @@ static void initMic() {
     mic_initialized = true;
 }
 
-// ─── ADC Sampling — 1024 samples from built-in mic at ~11,025 Hz ─
+// ─── ADC Sampling — 512 samples from built-in mic at ~8,000 Hz ────
 static int sampleADC() {
     initMic();
     int lo = 1023, hi = 0;
@@ -128,21 +133,19 @@ static int sampleADC() {
     return hi - lo;
 }
 
-// ─── Hanning Window ───────────────────────────────────────────────
+// ─── Hanning Window (precomputed, just multiply) ─────────────────
 static void applyHanningWindow() {
-    float factor = 2.0f * PI_F / (float)(FFT_SIZE - 1);
     for (int i = 0; i < FFT_SIZE; i++) {
-        float w = 0.5f * (1.0f - cosf(factor * (float)i));
-        fft_buf[2 * i] *= w;
+        fft_buf[2 * i] *= hanning_win[i];
     }
 }
 
-// ─── Magnitude Spectrum ───────────────────────────────────────────
+// ─── Magnitude-Squared Spectrum (skips sqrtf) ────────────────────
 static void computeMagnitudes() {
     for (int i = 0; i <= HALF_FFT; i++) {
         float re = fft_buf[2 * i];
         float im = fft_buf[2 * i + 1];
-        magnitudes[i] = sqrtf(re * re + im * im);
+        magnitudes[i] = re * re + im * im;
     }
 }
 
@@ -159,11 +162,11 @@ static bool isHarmonic(float f1, float f2) {
 
 // ─── Peak Detection ───────────────────────────────────────────────
 static void findPeaks(int peakToPeak) {
-    float freqRes = (float)SAMPLE_RATE / (float)FFT_SIZE;  // ~5.38 Hz
+    float freqRes = (float)SAMPLE_RATE / (float)FFT_SIZE;  // ~15.6 Hz
 
-    // Frequency range: margin below C4 (261.63) to just above B6 (1975.53)
-    int minBin = (int)(200.0f / freqRes);   // ~37, margin below C4
-    int maxBin = (int)(2050.0f / freqRes);  // ~381
+    // Frequency range: below C2 (65 Hz) to above B7 (3951 Hz)
+    int minBin = (int)(60.0f / freqRes);    // ~3
+    int maxBin = (int)(4000.0f / freqRes);  // ~256
     if (maxBin > HALF_FFT) maxBin = HALF_FFT;
 
     // Primary peak
@@ -190,8 +193,9 @@ static void findPeaks(int peakToPeak) {
     float primaryFreq = refinedBin * freqRes;
     result_primary_freq = (int)(primaryFreq + 0.5f);
 
-    // Secondary peak — non-harmonic, >= 30% of primary magnitude
-    float threshold = maxMag * 0.3f;
+    // Secondary peak — non-harmonic, >= 30% of primary amplitude
+    // (magnitudes are squared, so 0.3^2 = 0.09 threshold)
+    float threshold = maxMag * 0.09f;
     float secondMax = 0;
     int secondBinIdx = 0;
 
