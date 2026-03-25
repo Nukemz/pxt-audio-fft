@@ -6,9 +6,9 @@
 namespace audioFFT {
 
     /**
-     * Sample 2048 points from the built-in microphone at 11,025 Hz, apply a Hanning window,
-     * run a 2048-point FFT, and detect the two strongest frequency peaks.
-     * Blocks for approximately 190 ms.
+     * Sample 1024 points from the built-in microphone at 11,025 Hz, apply a Hanning window,
+     * run a 1024-point FFT, and detect the two strongest frequency peaks.
+     * Blocks for approximately 100 ms.
      */
     //% block="run audio analysis"
     //% shim=audioFFT::runAnalysis

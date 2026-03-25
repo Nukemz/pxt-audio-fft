@@ -5,8 +5,8 @@ using namespace pxt;
 namespace audioFFT {
 
 // ─── Constants ─────────────────────────────────────────────────────
-#define FFT_SIZE        2048
-#define HALF_FFT        1024
+#define FFT_SIZE        1024
+#define HALF_FFT        512
 #define SAMPLE_RATE     11025
 #define SAMPLE_PERIOD_US 90ULL   // 1000000 / 11025 ≈ 90 µs
 
@@ -97,7 +97,7 @@ static void initMic() {
     mic_initialized = true;
 }
 
-// ─── ADC Sampling — 2048 samples from built-in mic at ~11,025 Hz ─
+// ─── ADC Sampling — 1024 samples from built-in mic at ~11,025 Hz ─
 static int sampleADC() {
     initMic();
     int lo = 1023, hi = 0;
@@ -234,8 +234,10 @@ static void findPeaks(int peakToPeak) {
 void runAnalysis() {
     initTwiddles();
     int pp = sampleADC();
+    fiber_sleep(0);              // yield to CODAL scheduler
     applyHanningWindow();
     fftCompute(fft_buf, FFT_SIZE);
+    fiber_sleep(0);              // yield to CODAL scheduler
     computeMagnitudes();
     findPeaks(pp);
 }
