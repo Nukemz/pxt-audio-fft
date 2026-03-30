@@ -2,12 +2,8 @@
 // 7 natural notes per octave, 6 octaves = 42 entries
 // Index % 7 maps to: 0=C, 1=D, 2=E, 3=F, 4=G, 5=A, 6=B
 const NOTE_FREQS = [
-    65,  73,  82,  87,  98,  110, 123,   // octave 2
-    131, 147, 165, 175, 196, 220, 247,   // octave 3
-    262, 294, 330, 349, 392, 440, 494,   // octave 4
-    523, 587, 659, 698, 784, 880, 988,   // octave 5
-    1047, 1175, 1319, 1397, 1568, 1760, 1976,  // octave 6
-    2093, 2349, 2637, 2794, 3136, 3520, 3951   // octave 7
+    260, 292, 328, 348, 392, 440, 492,   // octave 4
+    520 ,584, 656, 696, 784, 880, 984   // octave 5
 ]
 
 // ─── Pre-allocated font bitmaps (7 notes × 5 rows) ─────────────
@@ -31,11 +27,11 @@ const FONT = [
 ]
 
 // ─── Tuneable Constants ──────────────────────────────────────────
-const TRIGGER_LEVEL = 50   // peak-to-peak ADC threshold (0-1023 from quickLevel)
+const TRIGGER_LEVEL = 30   // peak-to-peak ADC threshold (0-1023 from quickLevel)
 const SUSTAIN_COUNT = 3
 const QUIET_RESET = 2
-const FREQ_TOLERANCE_PCT = 10
-const QUIET_CLEAR_MS = 1000
+const FREQ_TOLERANCE_PCT = 5
+const QUIET_CLEAR_MS = 500
 
 // ─── State (all integers — zero heap allocation) ─────────────────
 let loudCount = 0
@@ -43,16 +39,17 @@ let quietCount = 0
 let lastNoteTime = 0
 let displayedIdx = -1   // index into NOTE_FREQS, -1 = none
 let displayedFreq = 0   // Hz value for A+B debug display
+let gNoteCount = 0      // Number of times note G is detected
 
 // ─── Startup: let ADC/mic settle before listening ────────────────
-basic.pause(2000)
+basic.pause(1000)
 
 /**
  * Find nearest note index. Returns -1 if no match within tolerance.
  * Zero heap allocation — only integer arithmetic.
  */
 function freqToNote(freq: number): number {
-    if (freq < 60 || freq > 4000) return -1
+    if (freq < 260 || freq > 1000) return -1
     let bestIdx = 0
     let bestDist = 99999
     for (let i = 0; i < NOTE_FREQS.length; i++) {
@@ -123,6 +120,23 @@ basic.forever(function () {
         let pFreq = audioFFT.primaryFrequency()
         let idx = freqToNote(pFreq)
         if (idx >= 0) {
+            // Count G note detections (idx % 7 == 4 is G)
+            if (idx % 7 === 4 && displayedIdx !== idx) {
+                gNoteCount += 1
+                if (gNoteCount >= 3) {
+                    pins.digitalWritePin(DigitalPin.P1, 1) // Turn on
+                    // Run async background task so we don't stall the main loop
+                    control.inBackground(function() {
+                        basic.pause(3000) // Wait 3 seconds
+                        pins.digitalWritePin(DigitalPin.P1, 0) // Turn off
+                    })
+                    gNoteCount = 0 // Reset counter for the next time
+                }
+            } else if (idx % 7 !== 4) {
+                // Optional: reset counter if a different note is played
+                // gNoteCount = 0 
+            }
+
             displayedIdx = idx
             displayedFreq = pFreq
             lastNoteTime = input.runningTime()
