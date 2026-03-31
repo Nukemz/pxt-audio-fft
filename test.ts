@@ -3,7 +3,7 @@
 // Index % 7 maps to: 0=C, 1=D, 2=E, 3=F, 4=G, 5=A, 6=B
 const NOTE_FREQS = [
     260, 292, 328, 348, 392, 440, 492,   // octave 4
-    520 ,584, 656, 696, 784, 880, 984   // octave 5
+    520, 584, 656, 696, 784, 880, 984   // octave 5
 ]
 
 // ─── Pre-allocated font bitmaps (7 notes × 5 rows) ─────────────
@@ -43,7 +43,6 @@ let gNoteCount = 0      // Number of times note G is detected
 
 // ─── Startup: let ADC/mic settle before listening ────────────────
 basic.pause(1000)
-
 /**
  * Find nearest note index. Returns -1 if no match within tolerance.
  * Zero heap allocation — only integer arithmetic.
@@ -124,12 +123,31 @@ basic.forever(function () {
             if (idx % 7 === 4 && displayedIdx !== idx) {
                 gNoteCount += 1
                 if (gNoteCount >= 3) {
+                    pins.digitalWritePin(DigitalPin.P0, 1) // Turn on
+                    // Run async background task so we don't stall the main loop
+                    control.inBackground(function () {
+                        basic.pause(3000) // Wait 3 seconds
+                        pins.digitalWritePin(DigitalPin.P0, 0) // Turn off
+                    })
                     pins.digitalWritePin(DigitalPin.P1, 1) // Turn on
                     // Run async background task so we don't stall the main loop
-                    control.inBackground(function() {
+                    control.inBackground(function () {
                         basic.pause(3000) // Wait 3 seconds
                         pins.digitalWritePin(DigitalPin.P1, 0) // Turn off
                     })
+                    pins.digitalWritePin(DigitalPin.P2, 1) // Turn on
+                    // Run async background task so we don't stall the main loop
+                    control.inBackground(function () {
+                        basic.pause(3000) // Wait 3 seconds
+                        pins.digitalWritePin(DigitalPin.P2, 0) // Turn off
+                    })
+                    pins.digitalWritePin(DigitalPin.P8, 1) // Turn on
+                    // Run async background task so we don't stall the main loop
+                    control.inBackground(function () {
+                        basic.pause(3000) // Wait 3 seconds
+                        pins.digitalWritePin(DigitalPin.P8, 0) // Turn off
+                    })
+
                     gNoteCount = 0 // Reset counter for the next time
                 }
             } else if (idx % 7 !== 4) {
