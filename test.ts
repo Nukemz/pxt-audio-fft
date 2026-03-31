@@ -120,39 +120,37 @@ basic.forever(function () {
         let idx = freqToNote(pFreq)
         if (idx >= 0) {
             // Count G note detections (idx % 7 == 4 is G)
-            if (idx % 7 === 4 && displayedIdx !== idx) {
+            if (idx % 7 === 4 && displayedIdx % 7 !== 4) {
                 gNoteCount += 1
                 if (gNoteCount >= 3) {
-                    pins.digitalWritePin(DigitalPin.P0, 1) // Turn on
-                    // Run async background task so we don't stall the main loop
                     control.inBackground(function () {
-                        basic.pause(3000) // Wait 3 seconds
-                        pins.digitalWritePin(DigitalPin.P0, 0) // Turn off
+                        pins.digitalWritePin(DigitalPin.P16, 1)
+                        basic.pause(3000)
+                        pins.digitalWritePin(DigitalPin.P16, 0)
                     })
-                    pins.digitalWritePin(DigitalPin.P1, 1) // Turn on
-                    // Run async background task so we don't stall the main loop
                     control.inBackground(function () {
-                        basic.pause(3000) // Wait 3 seconds
-                        pins.digitalWritePin(DigitalPin.P1, 0) // Turn off
+                        basic.pause(500)
+                        pins.digitalWritePin(DigitalPin.P1, 1)
+                        basic.pause(3000)
+                        pins.digitalWritePin(DigitalPin.P1, 0)
                     })
-                    pins.digitalWritePin(DigitalPin.P2, 1) // Turn on
-                    // Run async background task so we don't stall the main loop
                     control.inBackground(function () {
-                        basic.pause(3000) // Wait 3 seconds
-                        pins.digitalWritePin(DigitalPin.P2, 0) // Turn off
+                        basic.pause(1000)
+                        pins.digitalWritePin(DigitalPin.P2, 1)
+                        basic.pause(3000)
+                        pins.digitalWritePin(DigitalPin.P2, 0)
                     })
-                    pins.digitalWritePin(DigitalPin.P8, 1) // Turn on
-                    // Run async background task so we don't stall the main loop
                     control.inBackground(function () {
-                        basic.pause(3000) // Wait 3 seconds
-                        pins.digitalWritePin(DigitalPin.P8, 0) // Turn off
+                        basic.pause(1500)
+                        pins.digitalWritePin(DigitalPin.P8, 1)
+                        basic.pause(3000)
+                        pins.digitalWritePin(DigitalPin.P8, 0)
                     })
 
                     gNoteCount = 0 // Reset counter for the next time
                 }
             } else if (idx % 7 !== 4) {
-                // Optional: reset counter if a different note is played
-                // gNoteCount = 0 
+                gNoteCount = 0
             }
 
             displayedIdx = idx
